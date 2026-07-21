@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from email.message import EmailMessage
 
 
-TARGET_PRICE = 500.00
+TARGET_PRICE = 300.00
 
 PRODUCT_URL = (
     "https://bedjet.com/products/"
