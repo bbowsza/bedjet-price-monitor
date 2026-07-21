@@ -1,92 +1,53 @@
 import os
 import json
+import re
 import smtplib
 import requests
 
 from datetime import datetime, timezone
 from email.message import EmailMessage
+from bs4 import BeautifulSoup
+
+from sources import SOURCES
 
 
-TARGET_PRICE = 300.00
-
-PRODUCT_URL = (
-    "https://bedjet.com/products/"
-    "bedjet-3-climate-comfort-system-with-biorhythm-sleep-technology.js"
-)
-
+TARGET_PRICE = 500.00
 STATE_FILE = "state.json"
 
 
-def get_price():
-
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-
-    response = requests.get(
-        PRODUCT_URL,
-        headers=headers,
-        timeout=30
-    )
-
-    response.raise_for_status()
-
-    data = response.json()
-
-    prices = []
-
-    for variant in data.get("variants", []):
-
-        price = variant.get("price")
-
-        if price:
-            prices.append(
-                float(price) / 100
-            )
-
-    if prices:
-        return min(prices)
-
-    return None
-
-
-
-def send_email(price):
+def send_email(price, source, url):
 
     sender = os.environ["EMAIL_FROM"]
     password = os.environ["EMAIL_PASSWORD"]
     recipient = os.environ["EMAIL_TO"]
 
-
     msg = EmailMessage()
 
     msg["Subject"] = (
-        f"🚨 BedJet 3 Alert: ${price:.2f}"
+        f"🚨 BedJet 3 Deal Found: ${price:.2f}"
     )
 
     msg["From"] = sender
     msg["To"] = recipient
 
-
     msg.set_content(
 f"""
-BedJet 3 has dropped below your target price.
+BEDJET 3 DEAL ALERT
 
-Current price:
+Price:
 ${price:.2f}
 
-Your target:
-${TARGET_PRICE:.2f}
+Source:
+{source}
 
-Product:
-https://bedjet.com/
+Link:
+{url}
 
-Checked:
+Time:
 {datetime.now(timezone.utc)}
 """
     )
 
-
     with smtplib.SMTP_SSL(
         "smtp.gmail.com",
         465
@@ -99,21 +60,22 @@ Checked:
 
         smtp.send_message(msg)
 
-def send_sms(price):
+
+
+def send_sms(price, source):
 
     sender = os.environ["EMAIL_FROM"]
     password = os.environ["EMAIL_PASSWORD"]
-    sms_address = os.environ["SMS_EMAIL"]
+    sms = os.environ["SMS_EMAIL"]
 
     msg = EmailMessage()
 
-    msg["Subject"] = "BedJet Alert"
+    msg["Subject"] = "BedJet 3 Deal"
     msg["From"] = sender
-    msg["To"] = sms_address
+    msg["To"] = sms
 
     msg.set_content(
-        f"🚨 BedJet 3 is ${price:.2f}! "
-        f"Below your $300 target."
+        f"🚨 BedJet 3 ${price:.2f} at {source}"
     )
 
     with smtplib.SMTP_SSL(
@@ -127,6 +89,85 @@ def send_sms(price):
         )
 
         smtp.send_message(msg)
+
+
+
+def get_bedjet_price(url):
+
+    response = requests.get(
+        url,
+        headers={"User-Agent":"Mozilla/5.0"},
+        timeout=30
+    )
+
+    if response.status_code != 200:
+        return None
+
+    try:
+        data = response.json()
+
+        prices = []
+
+        for variant in data.get("variants", []):
+
+            if variant.get("price"):
+
+                prices.append(
+                    float(
+                        variant["price"]
+                    ) / 100
+                )
+
+        if prices:
+            return min(prices)
+
+    except:
+        pass
+
+    return None
+
+
+
+def search_page(url):
+
+    try:
+
+        response = requests.get(
+            url,
+            headers={"User-Agent":"Mozilla/5.0"},
+            timeout=30
+        )
+
+        text = BeautifulSoup(
+            response.text,
+            "html.parser"
+        ).get_text(
+            " ",
+            strip=True
+        )
+
+        if "bedjet 3" not in text.lower():
+            return None
+
+        prices = re.findall(
+            r"\$(\d{2,4}(?:\.\d{2})?)",
+            text
+        )
+
+        prices = [
+            float(p)
+            for p in prices
+            if float(p) > 100
+        ]
+
+        if prices:
+            return min(prices)
+
+    except:
+        pass
+
+    return None
+
 
 
 def load_state():
@@ -142,7 +183,7 @@ def load_state():
 
 
 
-def save_state(state):
+def save_state(data):
 
     with open(
         STATE_FILE,
@@ -150,72 +191,95 @@ def save_state(state):
     ) as f:
 
         json.dump(
-            state,
+            data,
             f,
             indent=2
         )
 
 
 
-print("Starting BedJet price check...")
+print("Starting BedJet 3 deal monitor")
 
-price = get_price()
-
-print("Detected price:", price)
-
-
-state = load_state()
+best_price = None
+best_source = None
+best_url = None
 
 
-if price is not None:
+for source in SOURCES:
 
-    if price < TARGET_PRICE:
+    print(
+        "Checking:",
+        source["name"]
+    )
 
-        if not state.get("alerted"):
+    price = None
 
-            send_email(price)
-            send_sms(price)
+    if source["type"] == "shopify":
 
-            state["alerted"] = True
-
+        price = get_bedjet_price(
+            source["url"]
+        )
 
     else:
 
-        state["alerted"] = False
-
-
-    state["last_price"] = price
-    state["last_check"] = str(
-        datetime.now(timezone.utc)
-    )
-
-    save_state(state)
-
-def send_sms(price):
-
-    sender = os.environ["EMAIL_FROM"]
-    password = os.environ["EMAIL_PASSWORD"]
-    sms_address = os.environ["SMS_EMAIL"]
-
-    msg = EmailMessage()
-
-    msg["Subject"] = "BedJet Alert"
-    msg["From"] = sender
-    msg["To"] = sms_address
-
-    msg.set_content(
-        f"🚨 BedJet 3 is ${price:.2f}! "
-        f"Below your $300 target."
-    )
-
-    with smtplib.SMTP_SSL(
-        "smtp.gmail.com",
-        465
-    ) as smtp:
-
-        smtp.login(
-            sender,
-            password
+        price = search_page(
+            source["url"]
         )
 
-        smtp.send_message(msg)
+
+    print(
+        "Price:",
+        price
+    )
+
+
+    if price:
+
+        if (
+            best_price is None
+            or price < best_price
+        ):
+
+            best_price = price
+            best_source = source["name"]
+            best_url = source["url"]
+
+
+
+if best_price:
+
+    print(
+        "LOWEST PRICE:",
+        best_price,
+        best_source
+    )
+
+
+    state = load_state()
+
+    already_alerted = (
+        state.get("alerted_price")
+        == best_price
+    )
+
+
+    if (
+        best_price <= TARGET_PRICE
+        and not already_alerted
+    ):
+
+        send_email(
+            best_price,
+            best_source,
+            best_url
+        )
+
+        send_sms(
+            best_price,
+            best_source
+        )
+
+        state["alerted_price"] = best_price
+
+
+    save_state(state)
