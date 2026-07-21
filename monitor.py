@@ -146,8 +146,28 @@ def search_page(url):
             strip=True
         )
 
-        if "bedjet 3" not in text.lower():
-            return None
+        text_lower = text.lower()
+
+required_terms = [
+    "bedjet 3",
+    "climate comfort"
+]
+
+excluded_terms = [
+    "cloud sheet",
+    "sheet set",
+    "sheets",
+    "accessory",
+    "replacement",
+    "cover",
+    "case"
+]
+
+if not all(term in text_lower for term in required_terms):
+    return None
+
+if any(term in text_lower for term in excluded_terms):
+    return None
 
         prices = re.findall(
             r"\$(\d{2,4}(?:\.\d{2})?)",
