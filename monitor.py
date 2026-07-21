@@ -11,7 +11,7 @@ TARGET_PRICE = 300.00
 
 PRODUCT_URL = (
     "https://bedjet.com/products/"
-    "bedjet-3-climate-comfort-system.js"
+    "bedjet-3-climate-comfort-system-with-biorhythm-sleep-technology.js"
 )
 
 STATE_FILE = "state.json"
