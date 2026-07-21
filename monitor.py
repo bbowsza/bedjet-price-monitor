@@ -1,20 +1,19 @@
 import os
 import json
-import re
 import smtplib
 import requests
 
 from datetime import datetime, timezone
 from email.message import EmailMessage
-from bs4 import BeautifulSoup
 
+
+TARGET_PRICE = 300.00
 
 PRODUCT_URL = (
     "https://bedjet.com/products/"
-    "bedjet-3-climate-comfort-system"
+    "bedjet-3-climate-comfort-system.js"
 )
 
-TARGET_PRICE = 1000.00
 STATE_FILE = "state.json"
 
 
@@ -32,31 +31,24 @@ def get_price():
 
     response.raise_for_status()
 
-    soup = BeautifulSoup(
-        response.text,
-        "html.parser"
-    )
+    data = response.json()
 
-    text = soup.get_text(
-        " ",
-        strip=True
-    )
+    prices = []
 
-    prices = re.findall(
-        r"\$(\d+\.\d{2})",
-        text
-    )
+    for variant in data.get("variants", []):
 
-    prices = [
-        float(p)
-        for p in prices
-        if float(p) > 100
-    ]
+        price = variant.get("price")
+
+        if price:
+            prices.append(
+                float(price) / 100
+            )
 
     if prices:
         return min(prices)
 
     return None
+
 
 
 def send_email(price):
@@ -69,7 +61,7 @@ def send_email(price):
     msg = EmailMessage()
 
     msg["Subject"] = (
-        f"🚨 BedJet 3 Price Alert ${price:.2f}"
+        f"🚨 BedJet 3 Alert: ${price:.2f}"
     )
 
     msg["From"] = sender
@@ -83,11 +75,11 @@ BedJet 3 has dropped below your target price.
 Current price:
 ${price:.2f}
 
-Target:
+Your target:
 ${TARGET_PRICE:.2f}
 
-Purchase link:
-{PRODUCT_URL}
+Product:
+https://bedjet.com/
 
 Checked:
 {datetime.now(timezone.utc)}
@@ -111,12 +103,14 @@ Checked:
 
 def load_state():
 
-    if os.path.exists(STATE_FILE):
+    try:
 
         with open(STATE_FILE) as f:
             return json.load(f)
 
-    return {}
+    except:
+
+        return {}
 
 
 
@@ -134,42 +128,34 @@ def save_state(state):
         )
 
 
+
 print("Starting BedJet price check...")
+
 price = get_price()
+
+print("Detected price:", price)
+
 
 state = load_state()
 
 
-print("Detected price:", price)
+if price is not None:
 
-if price:
+    if price < TARGET_PRICE:
 
-    print(
-        "Current BedJet price:",
-        price
-    )
+        if not state.get("alerted"):
 
+            send_email(price)
 
-    already_alerted = state.get(
-        "alerted",
-        False
-    )
+            state["alerted"] = True
 
 
-    if price < TARGET_PRICE and not already_alerted:
-
-        send_email(price)
-
-        state["alerted"] = True
-
-
-    elif price >= TARGET_PRICE:
+    else:
 
         state["alerted"] = False
 
 
     state["last_price"] = price
-
     state["last_check"] = str(
         datetime.now(timezone.utc)
     )
