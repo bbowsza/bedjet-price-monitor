@@ -134,7 +134,7 @@ def search_page(url):
 
         response = requests.get(
             url,
-            headers={"User-Agent":"Mozilla/5.0"},
+            headers={"User-Agent": "Mozilla/5.0"},
             timeout=30
         )
 
@@ -148,26 +148,36 @@ def search_page(url):
 
         text_lower = text.lower()
 
-required_terms = [
-    "bedjet 3",
-    "climate comfort"
-]
+        # Must be the actual BedJet 3 Climate Comfort System
+        required_terms = [
+            "bedjet 3",
+            "climate comfort"
+        ]
 
-excluded_terms = [
-    "cloud sheet",
-    "sheet set",
-    "sheets",
-    "accessory",
-    "replacement",
-    "cover",
-    "case"
-]
+        # Reject bundles/accessories
+        excluded_terms = [
+            "cloud sheet",
+            "cloud sheets",
+            "sheet set",
+            "accessory",
+            "replacement",
+            "cover",
+            "case"
+        ]
 
-if not all(term in text_lower for term in required_terms):
-    return None
+        if not all(
+            term in text_lower
+            for term in required_terms
+        ):
+            return None
 
-if any(term in text_lower for term in excluded_terms):
-    return None
+
+        if any(
+            term in text_lower
+            for term in excluded_terms
+        ):
+            return None
+
 
         prices = re.findall(
             r"\$(\d{2,4}(?:\.\d{2})?)",
@@ -177,14 +187,21 @@ if any(term in text_lower for term in excluded_terms):
         prices = [
             float(p)
             for p in prices
-            if float(p) > 100
+            if 200 <= float(p) <= 1000
         ]
+
 
         if prices:
             return min(prices)
 
-    except:
-        pass
+
+    except Exception as e:
+
+        print(
+            "Search error:",
+            e
+        )
+
 
     return None
 
