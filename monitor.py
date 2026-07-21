@@ -99,6 +99,34 @@ Checked:
 
         smtp.send_message(msg)
 
+def send_sms(price):
+
+    sender = os.environ["EMAIL_FROM"]
+    password = os.environ["EMAIL_PASSWORD"]
+    sms_address = os.environ["SMS_EMAIL"]
+
+    msg = EmailMessage()
+
+    msg["Subject"] = "BedJet Alert"
+    msg["From"] = sender
+    msg["To"] = sms_address
+
+    msg.set_content(
+        f"🚨 BedJet 3 is ${price:.2f}! "
+        f"Below your $300 target."
+    )
+
+    with smtplib.SMTP_SSL(
+        "smtp.gmail.com",
+        465
+    ) as smtp:
+
+        smtp.login(
+            sender,
+            password
+        )
+
+        smtp.send_message(msg)
 
 
 def load_state():
