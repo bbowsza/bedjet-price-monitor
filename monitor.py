@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 from sources import SOURCES
 
 
-TARGET_PRICE = 500.00
+TARGET_PRICE = 300.00
 STATE_FILE = "state.json"
 
 
