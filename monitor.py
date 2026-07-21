@@ -134,11 +134,13 @@ def save_state(state):
         )
 
 
-
+print("Starting BedJet price check...")
 price = get_price()
 
 state = load_state()
 
+
+print("Detected price:", price)
 
 if price:
 
