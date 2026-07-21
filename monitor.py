@@ -14,7 +14,7 @@ PRODUCT_URL = (
     "bedjet-3-climate-comfort-system"
 )
 
-TARGET_PRICE = 300.00
+TARGET_PRICE = 1000.00
 STATE_FILE = "state.json"
 
 
