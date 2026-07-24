@@ -11,11 +11,16 @@ from bs4 import BeautifulSoup
 from sources import SOURCES
 
 
-TARGET_PRICE = 300.00
+PRODUCT_FILE = "products.json"
 STATE_FILE = "state.json"
 
 
-def send_email(price, source, url):
+with open(PRODUCT_FILE) as f:
+    PRODUCTS = json.load(f)
+
+
+
+def send_email(product, price, source, url):
 
     sender = os.environ["EMAIL_FROM"]
     password = os.environ["EMAIL_PASSWORD"]
@@ -24,20 +29,21 @@ def send_email(price, source, url):
     msg = EmailMessage()
 
     msg["Subject"] = (
-        f"🚨 BedJet 3 Deal Found: ${price:.2f}"
+        f"🚨 {product['name']} Deal: ${price:.2f}"
     )
 
     msg["From"] = sender
     msg["To"] = recipient
 
+
     msg.set_content(
 f"""
-BEDJET 3 DEAL ALERT
+{product['name']} DEAL ALERT
 
 Price:
 ${price:.2f}
 
-Source:
+Store:
 {source}
 
 Link:
@@ -48,6 +54,7 @@ Time:
 """
     )
 
+
     with smtplib.SMTP_SSL(
         "smtp.gmail.com",
         465
@@ -62,7 +69,8 @@ Time:
 
 
 
-def send_sms(price, source):
+
+def send_sms(product, price, source):
 
     sender = os.environ["EMAIL_FROM"]
     password = os.environ["EMAIL_PASSWORD"]
@@ -70,13 +78,16 @@ def send_sms(price, source):
 
     msg = EmailMessage()
 
-    msg["Subject"] = "BedJet 3 Deal"
+    msg["Subject"] = product["name"]
+
     msg["From"] = sender
     msg["To"] = sms
 
+
     msg.set_content(
-        f"🚨 BedJet 3 ${price:.2f} at {source}"
+        f"🚨 {product['name']} ${price:.2f} at {source}"
     )
+
 
     with smtplib.SMTP_SSL(
         "smtp.gmail.com",
@@ -92,23 +103,30 @@ def send_sms(price, source):
 
 
 
-def get_bedjet_price(url):
 
-    response = requests.get(
-        url,
-        headers={"User-Agent":"Mozilla/5.0"},
-        timeout=30
-    )
-
-    if response.status_code != 200:
-        return None
+def get_shopify_price(url):
 
     try:
+
+        response = requests.get(
+            url,
+            headers={
+                "User-Agent":"Mozilla/5.0"
+            },
+            timeout=30
+        )
+
+
         data = response.json()
+
 
         prices = []
 
-        for variant in data.get("variants", []):
+
+        for variant in data.get(
+            "variants",
+            []
+        ):
 
             if variant.get("price"):
 
@@ -118,65 +136,64 @@ def get_bedjet_price(url):
                     ) / 100
                 )
 
+
         if prices:
             return min(prices)
 
-    except:
-        pass
+
+    except Exception as e:
+
+        print(
+            "Shopify error:",
+            e
+        )
+
 
     return None
 
 
 
-def search_page(url):
+
+def search_page(url, product):
 
     try:
 
         response = requests.get(
             url,
-            headers={"User-Agent": "Mozilla/5.0"},
+            headers={
+                "User-Agent":"Mozilla/5.0"
+            },
             timeout=30
         )
 
+
         text = BeautifulSoup(
             response.text,
-            "html.parser"
+            "lxml"
         ).get_text(
             " ",
             strip=True
         )
 
+
         text_lower = text.lower()
 
-        # Must be the actual BedJet 3 Climate Comfort System
-        required_terms = [
-            "bedjet 3",
-            "climate comfort"
-        ]
 
-        # Reject bundles/accessories
-        excluded_terms = [
-            "cloud sheet",
-            "cloud sheets",
-            "sheet set",
-            "accessory",
-            "replacement",
-            "cover",
-            "case"
-        ]
 
         if not all(
             term in text_lower
-            for term in required_terms
+            for term in product["required_terms"]
         ):
             return None
+
 
 
         if any(
             term in text_lower
-            for term in excluded_terms
+            for term in product["excluded_terms"]
         ):
             return None
+
 
 
         prices = re.findall(
@@ -184,14 +201,16 @@ def search_page(url):
             text
         )
 
+
         prices = [
             float(p)
             for p in prices
-            if 200 <= float(p) <= 1000
+            if 50 <= float(p) <= 2000
         ]
 
 
         if prices:
+
             return min(prices)
 
 
@@ -204,6 +223,7 @@ def search_page(url):
 
 
     return None
+
 
 
 
@@ -220,7 +240,8 @@ def load_state():
 
 
 
-def save_state(data):
+
+def save_state(state):
 
     with open(
         STATE_FILE,
@@ -228,80 +249,131 @@ def save_state(data):
     ) as f:
 
         json.dump(
-            data,
+            state,
             f,
             indent=2
         )
 
 
 
-print("Starting BedJet 3 deal monitor")
 
-best_price = None
-best_source = None
-best_url = None
+print(
+    "Starting multi-product monitor"
+)
 
 
-for source in SOURCES:
+state = load_state()
 
-    url = source["url_template"].format(
-        query=product["search_query"]
-    )
+
+
+for product in PRODUCTS:
+
 
     print(
-        "Checking:",
-        source["name"],
-        url
+        "\nChecking:",
+        product["name"]
     )
 
 
-    if price:
+    best_price = None
+    best_source = None
+    best_url = None
+
+
+
+    for source in SOURCES:
+
+
+        print(
+            "Checking:",
+            source["name"]
+        )
+
+
+        url = source["url_template"].format(
+            query=product["search_query"].replace(
+                " ",
+                "+"
+            )
+        )
+
+
+        price = None
+
+
+        if source["type"] == "shopify":
+
+            price = get_shopify_price(
+                url
+            )
+
+        else:
+
+            price = search_page(
+                url,
+                product
+            )
+
+
+        print(
+            "Price:",
+            price
+        )
+
+
+        if price:
+
+            if (
+                best_price is None
+                or price < best_price
+            ):
+
+                best_price = price
+                best_source = source["name"]
+                best_url = url
+
+
+
+
+    if best_price:
+
+
+        print(
+            "BEST PRICE:",
+            best_price
+        )
+
+
+        alert_key = (
+            product["name"]
+            +
+            str(best_price)
+        )
+
 
         if (
-            best_price is None
-            or price < best_price
+            best_price <= product["target_price"]
+            and alert_key not in state
         ):
 
-            best_price = price
-            best_source = source["name"]
-            best_url = source["url"]
+
+            send_email(
+                product,
+                best_price,
+                best_source,
+                best_url
+            )
+
+
+            send_sms(
+                product,
+                best_price,
+                best_source
+            )
+
+
+            state[alert_key] = True
 
 
 
-if best_price:
-
-    print(
-        "LOWEST PRICE:",
-        best_price,
-        best_source
-    )
-
-
-    state = load_state()
-
-    already_alerted = (
-        state.get("alerted_price")
-        == best_price
-    )
-
-
-    if (
-        best_price <= TARGET_PRICE
-        and not already_alerted
-    ):
-
-        send_email(
-            best_price,
-            best_source,
-            best_url
-        )
-
-        send_sms(
-            best_price,
-            best_source
-        )
-
-        state["alerted_price"] = best_price
-
-
-    save_state(state)
+save_state(state)
