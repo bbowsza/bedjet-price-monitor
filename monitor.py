@@ -9,6 +9,17 @@ from email.message import EmailMessage
 from bs4 import BeautifulSoup
 
 from sources import SOURCES
+from stores import amazon
+from stores import bestbuy
+from stores import target
+from stores import walmart
+
+STORE_FUNCTIONS = {
+    "Amazon": amazon.search,
+    "Best Buy": bestbuy.search,
+    "Target": target.search,
+    "Walmart": walmart.search
+}
 
 
 PRODUCT_FILE = "products.json"
