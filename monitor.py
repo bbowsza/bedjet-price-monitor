@@ -244,29 +244,14 @@ best_url = None
 
 for source in SOURCES:
 
-    print(
-        "Checking:",
-        source["name"]
+    url = source["url_template"].format(
+        query=product["search_query"]
     )
 
-    price = None
-
-    if source["type"] == "shopify":
-
-        price = get_bedjet_price(
-            source["url"]
-        )
-
-    else:
-
-        price = search_page(
-            source["url"]
-        )
-
-
     print(
-        "Price:",
-        price
+        "Checking:",
+        source["name"],
+        url
     )
 
 
