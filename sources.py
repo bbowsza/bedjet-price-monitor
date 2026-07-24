@@ -35,4 +35,8 @@ SOURCES = [
         "type": "search",
         "url_template": "https://slickdeals.net/newsearch.php?src=SearchBox&q={query}"
     }
-]
+{
+    "name": "Target",
+    "type": "search",
+    "url_template": "https://www.target.com/s?searchTerm={query}"
+}
