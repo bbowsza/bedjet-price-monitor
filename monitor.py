@@ -38,7 +38,7 @@ def send_email(product, price, source, url):
 
     msg.set_content(
 f"""
-{product['name']} DEAL ALERT
+🚨 {product['name']} DEAL ALERT
 
 Price:
 ${price:.2f}
@@ -46,10 +46,13 @@ ${price:.2f}
 Store:
 {source}
 
-Link:
+Direct Link:
 {url}
 
-Time:
+Target Price:
+${product['target_price']:.2f}
+
+Checked:
 {datetime.now(timezone.utc)}
 """
     )
@@ -69,8 +72,7 @@ Time:
 
 
 
-
-def send_sms(product, price, source):
+def send_sms(product, price, source, url):
 
     sender = os.environ["EMAIL_FROM"]
     password = os.environ["EMAIL_PASSWORD"]
@@ -85,7 +87,14 @@ def send_sms(product, price, source):
 
 
     msg.set_content(
-        f"🚨 {product['name']} ${price:.2f} at {source}"
+f"""
+🚨 {product['name']}
+
+${price:.2f}
+{source}
+
+{url}
+"""
     )
 
 
@@ -119,14 +128,10 @@ def get_shopify_price(url):
 
         data = response.json()
 
-
         prices = []
 
 
-        for variant in data.get(
-            "variants",
-            []
-        ):
+        for variant in data.get("variants", []):
 
             if variant.get("price"):
 
@@ -138,7 +143,11 @@ def get_shopify_price(url):
 
 
         if prices:
-            return min(prices)
+
+            return {
+                "price": min(prices),
+                "url": url
+            }
 
 
     except Exception as e:
@@ -150,6 +159,28 @@ def get_shopify_price(url):
 
 
     return None
+
+
+
+
+def extract_product_links(soup):
+
+    links = []
+
+    for a in soup.find_all("a", href=True):
+
+        href = a["href"]
+
+        if href.startswith("/"):
+
+            href = "https://www." + href
+
+        if href.startswith("http"):
+
+            links.append(href)
+
+
+    return links
 
 
 
@@ -167,10 +198,13 @@ def search_page(url, product):
         )
 
 
-        text = BeautifulSoup(
+        soup = BeautifulSoup(
             response.text,
             "lxml"
-        ).get_text(
+        )
+
+
+        text = soup.get_text(
             " ",
             strip=True
         )
@@ -180,10 +214,27 @@ def search_page(url, product):
 
 
 
+        unavailable = [
+            "out of stock",
+            "sold out",
+            "unavailable"
+        ]
+
+
+        if any(
+            word in text_lower
+            for word in unavailable
+        ):
+
+            return None
+
+
+
         if not all(
             term in text_lower
             for term in product["required_terms"]
         ):
+
             return None
 
 
@@ -192,6 +243,7 @@ def search_page(url, product):
             term in text_lower
             for term in product["excluded_terms"]
         ):
+
             return None
 
 
@@ -203,16 +255,48 @@ def search_page(url, product):
 
 
         prices = [
-    float(p)
-    for p in prices
-    if product["target_price"] * 1.5 >= float(p)
-]
+            float(p)
+            for p in prices
+            if float(p) <= product["target_price"] * 1.5
         ]
 
 
-        if prices:
 
-            return min(prices)
+        if not prices:
+
+            return None
+
+
+
+        best_price = min(prices)
+
+
+
+        links = extract_product_links(
+            soup
+        )
+
+
+        product_link = url
+
+
+        for link in links:
+
+            if any(
+                word in link.lower()
+                for word in product["required_terms"]
+            ):
+
+                product_link = link
+                break
+
+
+
+        return {
+            "price": best_price,
+            "url": product_link
+        }
+
 
 
     except Exception as e:
@@ -233,6 +317,7 @@ def load_state():
     try:
 
         with open(STATE_FILE) as f:
+
             return json.load(f)
 
     except:
@@ -259,7 +344,7 @@ def save_state(state):
 
 
 print(
-    "Starting multi-product monitor"
+    "Starting price monitor"
 )
 
 
@@ -276,19 +361,11 @@ for product in PRODUCTS:
     )
 
 
-    best_price = None
-    best_source = None
-    best_url = None
+    best = None
 
 
 
     for source in SOURCES:
-
-
-        print(
-            "Checking:",
-            source["name"]
-        )
 
 
         url = source["url_template"].format(
@@ -299,81 +376,85 @@ for product in PRODUCTS:
         )
 
 
-        price = None
+        print(
+            source["name"],
+            url
+        )
+
 
 
         if source["type"] == "shopify":
 
-            price = get_shopify_price(
+            result = get_shopify_price(
                 url
             )
 
         else:
 
-            price = search_page(
+            result = search_page(
                 url,
                 product
             )
 
 
-        print(
-            "Price:",
-            price
-        )
 
-
-        if price:
+        if result:
 
             if (
-                best_price is None
-                or price < best_price
+                best is None
+                or result["price"] < best["price"]
             ):
 
-                best_price = price
-                best_source = source["name"]
-                best_url = url
+                best = {
+                    "price": result["price"],
+                    "source": source["name"],
+                    "url": result["url"]
+                }
 
 
 
-
-    if best_price:
+    if best:
 
 
         print(
-            "BEST PRICE:",
-            best_price
+            "BEST DEAL:",
+            best
         )
 
 
-        alert_key = (
-            product["name"]
-            +
-            str(best_price)
-        )
+
+        if best["price"] <= product["target_price"]:
 
 
-        if (
-            best_price <= product["target_price"]
-            and alert_key not in state
-        ):
-
-
-            send_email(
-                product,
-                best_price,
-                best_source,
-                best_url
+            alert_key = (
+                product["name"]
+                +
+                str(best["price"])
             )
 
 
-            send_sms(
-                product,
-                best_price,
-                best_source
-            )
+
+            if alert_key not in state:
 
 
-            state[alert_key] = True
+                send_email(
+                    product,
+                    best["price"],
+                    best["source"],
+                    best["url"]
+                )
+
+
+                send_sms(
+                    product,
+                    best["price"],
+                    best["source"],
+                    best["url"]
+                )
+
+
+                state[alert_key] = True
+
 
 
 
