@@ -9,11 +9,12 @@
     ],
     "excluded_terms": [
       "cloud sheet",
+      "sheet set",
       "replacement",
-      "cover"
+      "cover",
+      "case"
     ]
   },
-
   {
     "name": "Ninja Slushi Twist",
     "search_query": "ninja slushi twist",
@@ -23,8 +24,10 @@
       "slushi"
     ],
     "excluded_terms": [
+      "replacement",
       "parts",
-      "replacement"
+      "accessory",
+      "recipe"
     ]
   }
 ]
