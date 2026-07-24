@@ -1,9 +1,9 @@
 SOURCES = [
+
     {
-        {
-    "name": "BedJet",
-    "type": "shopify",
-    "url_template": "https://bedjet.com/products/bedjet-3-climate-comfort-system-with-biorhythm-sleep-technology.js"
+        "name": "BedJet",
+        "type": "shopify",
+        "url_template": "https://bedjet.com/products/bedjet-3-climate-comfort-system-with-biorhythm-sleep-technology.js"
     },
 
     {
@@ -16,6 +16,18 @@ SOURCES = [
         "name": "Amazon",
         "type": "search",
         "url_template": "https://www.amazon.com/s?k={query}"
+    },
+
+    {
+        "name": "Target",
+        "type": "search",
+        "url_template": "https://www.target.com/s?searchTerm={query}"
+    },
+
+    {
+        "name": "Walmart",
+        "type": "search",
+        "url_template": "https://www.walmart.com/search?q={query}"
     },
 
     {
@@ -35,8 +47,4 @@ SOURCES = [
         "type": "search",
         "url_template": "https://slickdeals.net/newsearch.php?src=SearchBox&q={query}"
     }
-{
-    "name": "Target",
-    "type": "search",
-    "url_template": "https://www.target.com/s?searchTerm={query}"
-}
+]
