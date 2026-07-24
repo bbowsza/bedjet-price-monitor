@@ -1,8 +1,9 @@
 SOURCES = [
     {
-        "name": "BedJet",
-        "type": "shopify",
-        "url_template": "https://bedjet.com/products/bedjet-3-climate-comfort-system-with-biorhythm-sleep-technology.js"
+        {
+    "name": "BedJet",
+    "type": "shopify",
+    "url_template": "https://bedjet.com/products/bedjet-3-climate-comfort-system-with-biorhythm-sleep-technology.js"
     },
 
     {
