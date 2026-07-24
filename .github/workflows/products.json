@@ -1,0 +1,32 @@
+[
+  {
+    "name": "BedJet 3 Climate Comfort System",
+    "max_price": 300,
+    "required_terms": [
+      "bedjet",
+      "climate"
+    ],
+    "excluded_terms": [
+      "sheet",
+      "sheets",
+      "mattress",
+      "cover"
+    ]
+  },
+  {
+    "name": "Ninja Slushi Twist",
+    "max_price": 300,
+    "required_terms": [
+      "ninja",
+      "slushi",
+      "twist"
+    ],
+    "excluded_terms": [
+      "replacement",
+      "recipe",
+      "parts",
+      "cup",
+      "straw"
+    ]
+  }
+]
