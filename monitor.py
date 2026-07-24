@@ -203,9 +203,10 @@ def search_page(url, product):
 
 
         prices = [
-            float(p)
-            for p in prices
-            if 50 <= float(p) <= 2000
+    float(p)
+    for p in prices
+    if product["target_price"] * 1.5 >= float(p)
+]
         ]
 
 
